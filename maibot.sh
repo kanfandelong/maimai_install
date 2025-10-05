@@ -45,6 +45,7 @@ init_paths() {
     fi
     
     DEPLOY_DIR="$DEPLOY_BASE/MaiBot"
+	PLUGIN_DIR="$DEPLOY_DIR/plugins"
     ADAPTER_DIR="$DEPLOY_BASE/MaiBot-Napcat-Adapter"
     DEPLOY_STATUS_FILE="$DEPLOY_DIR/deploy.status"
     
@@ -346,6 +347,42 @@ view_logs() {
     done
 }
 
+install_plugins() {
+	echo -ne "${BOLD}${YELLOW}请输入插件仓库地址："
+	read plugin_url
+	plugin_name=$(basename "$plugin_url" .git)
+	info "开始克隆插件$plugin_name"
+	if [ -d "$PLUGIN_DIR/$plugin_name" ]; then # 如果目录已存在
+        warn "检测到插件$plugin_name已存在。是否删除并重新克隆？(y/n)" # 提示用户是否删除
+        read -p "请输入选择 (y/n, 默认n): " del_choice # 询问用户是否删除
+        del_choice=${del_choice:-n} # 默认选择不删除
+        if [ "$del_choice" = "y" ] || [ "$del_choice" = "Y" ]; then # 如果用户选择删除
+            rm -rf "$PLUGIN_DIR/$plugin_name" # 删除插件
+            success "已删除$plugin_name" # 提示用户已删除
+        else # 如果用户选择不删除
+            warn "已取消$plugin_name的安装。" # 提示用户跳过克隆
+            return # 结束函数
+        fi # 结束删除选择
+    fi # 如果目录不存在则继续克隆
+    git clone --depth 1 "$plugin_url" "$PLUGIN_DIR/$plugin_name" # 克隆仓库
+	
+    info "激活虚拟环境"
+    source "$DEPLOY_DIR/.venv/bin/activate"
+	info "开始安装插件依赖"
+	if pip install -r $PLUGIN_DIR/$plugin_name/requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple; then
+        success "$plugin_name 依赖安装成功"
+		info "显示$plugin_name的README"
+		cat $PLUGIN_DIR/$plugin_name/README.md
+		info "README已显示"
+		press_any_key
+        break
+    else
+        warn "$plugin_name 依赖安装失败"
+		press_any_key
+    fi
+	
+}
+
 # 清理日志
 clean_logs() {
     local service=$1
@@ -369,7 +406,7 @@ clean_logs() {
 # 显示菜单
 show_menu() {
     clear
-    print_title "MaiBot 服务管理 (nohup版) 2025.10.03"
+    print_title "MaiBot 管理面板 2025.10.06"
     
     echo -e "${CYAN}系统信息:${RESET}"
     echo -e "  用户: ${GREEN}$CURRENT_USER${RESET}"
@@ -395,26 +432,31 @@ show_menu() {
     echo -e "${BOLD}${YELLOW}操作菜单:${RESET}"
     print_line
     
-    echo -e "  ${BOLD}${GREEN}[1] ${RESET} 启动所有服务 (MaiBot + Adapter)"
-    echo -e "  ${BOLD}${GREEN}[2] ${RESET} 停止所有服务"
+    echo -e "  ${BOLD}${GREEN}[1]  ${RESET} 启动所有服务 (MaiBot + Adapter)"
+    echo -e "  ${BOLD}${GREEN}[2]  ${RESET} 停止所有服务"
     echo ""
-    echo -e "  ${BOLD}${GREEN}[3] ${RESET} 仅启动 MaiBot"
-    echo -e "  ${BOLD}${GREEN}[4] ${RESET} 仅启动 MaiBot-Napcat-Adapter"
+    echo -e "  ${BOLD}${GREEN}[3]  ${RESET} 仅启动 MaiBot"
+    echo -e "  ${BOLD}${GREEN}[4]  ${RESET} 仅启动 MaiBot-Napcat-Adapter"
     echo ""
-    echo -e "  ${BOLD}${GREEN}[5] ${RESET} 仅停止 MaiBot"
-    echo -e "  ${BOLD}${GREEN}[6] ${RESET} 仅停止 MaiBot-Napcat-Adapter"
+    echo -e "  ${BOLD}${GREEN}[5]  ${RESET} 仅停止 MaiBot"
+    echo -e "  ${BOLD}${GREEN}[6]  ${RESET} 仅停止 MaiBot-Napcat-Adapter"
     echo ""
-    echo -e "  ${BOLD}${GREEN}[7] ${RESET} 查看 MaiBot 日志"
-    echo -e "  ${BOLD}${GREEN}[8] ${RESET} 查看 MaiBot-Napcat-Adapter 日志"
+	echo -e "  ${BOLD}${GREEN}[7]  ${RESET} 前台启动 MaiBot"
+    echo -e "  ${BOLD}${GREEN}[8]  ${RESET} 前台启动 MaiBot-Napcat-Adapter"
     echo ""
-    echo -e "  ${BOLD}${GREEN}[9] ${RESET} 清理 MaiBot 日志和PID"
-    echo -e "  ${BOLD}${GREEN}[10]${RESET} 清理 MaiBot-Napcat-Adapter 日志和PID"
+    echo -e "  ${BOLD}${GREEN}[9]  ${RESET} 查看 MaiBot 日志"
+    echo -e "  ${BOLD}${GREEN}[10] ${RESET} 查看 MaiBot-Napcat-Adapter 日志"
     echo ""
-    echo -e "  ${BOLD}${GREEN}[0] ${RESET} 退出脚本"
+    echo -e "  ${BOLD}${GREEN}[11] ${RESET} 清理 MaiBot 日志和PID"
+    echo -e "  ${BOLD}${GREEN}[12] ${RESET} 清理 MaiBot-Napcat-Adapter 日志和PID"
+    echo ""
+    echo -e "  ${BOLD}${GREEN}[13] ${RESET} 安装插件"
+    echo ""
+    echo -e "  ${BOLD}${GREEN}[0]  ${RESET} 退出脚本"
     
     print_line
     echo ""
-    echo -ne "${BOLD}${YELLOW}请选择操作 [0-10]: ${RESET}"
+    echo -ne "${BOLD}${YELLOW}请选择操作 [0-13]: ${RESET}"
 }
 
 # =============================================================================
@@ -483,22 +525,33 @@ main() {
                 stop_adapter
                 press_any_key
                 ;;
-            7) 
+			7)
+				cd $DEPLOY_DIR && source .venv/bin/activate && python3 bot.py
+				press_any_key 
+				;;
+			8)
+				cd $ADAPTER_DIR && source $DEPLOY_DIR/.venv/bin/activate && python3 main.py
+				press_any_key 
+				;;
+            9) 
                 view_logs "MaiBot" "$MAIBOT_LOG_FILE"
                 ;;
-            8) 
+            10) 
                 view_logs "MaiBot-Napcat-Adapter" "$ADAPTER_LOG_FILE"
                 ;;
-            9) 
+            11) 
                 print_title "清理 MaiBot"
                 clean_logs "MaiBot" "$MAIBOT_LOG_FILE" "$MAIBOT_PID_FILE"
                 press_any_key
                 ;;
-            10) 
+            12) 
                 print_title "清理 MaiBot-Napcat-Adapter"
                 clean_logs "MaiBot-Napcat-Adapter" "$ADAPTER_LOG_FILE" "$ADAPTER_PID_FILE"
                 press_any_key
                 ;;
+			13)
+				install_plugins
+			    ;;
             114514) 
                 echo "原始脚本仓库https://github.com/Astriora/Antlia 本脚本仓库地址https://github.com/kanfandelong/maimai_install" 
                 press_any_key  

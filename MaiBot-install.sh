@@ -322,7 +322,7 @@ install_venv_package() {
 install_system_dependencies() {   #定义函数
     print_title "安装系统依赖"  #打印标题
     
-    local packages=("git" "python3" "screen" "tar" "findutils" "zip")  #定义必需包数组
+    local packages=("git" "python3" "tar" "findutils" "zip")  #定义必需包数组 "screen"
     
     # 检查下载工具
     if ! command_exists curl && ! command_exists wget; then  #如果 curl 和 wget 都不存在
