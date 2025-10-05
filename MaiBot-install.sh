@@ -335,8 +335,8 @@ install_system_dependencies() {   #定义函数
         # 只有 Arch 才用包管理器安装 uv
         # packages+=("uv")
         # info "已将 uv 添加到 Arch 的必需安装包列表"
-    fi
-        if ! command_exists pip3 && ! command_exists pip; then   #如果 pip3 和 pip 都不存在
+    #fi
+    if ! command_exists pip3 && ! command_exists pip; then   #如果 pip3 和 pip 都不存在
         case $PKG_MANAGER in                                 #根据包管理器选择 pip 包名称
             apt) packages+=("python3-pip") ;;                # apt
             pacman) packages+=("python-pip") ;;              # pacman
@@ -529,7 +529,7 @@ update_shell_config() {
 
 
 download-script() {
-    local DOWNLOAD_URL="${GITHUB_PROXY}https://github.com/kanfandelong/maimai_install/maibot.sh"
+    local DOWNLOAD_URL="${GITHUB_PROXY}https://github.com/kanfandelong/maimai_install/raw/main/maibot.sh"
     local TARGET_DIR="$LOCAL_BIN/maibot"        # 目录
     local TARGET_FILE="$TARGET_DIR/maibot"      # 文件路径
 
