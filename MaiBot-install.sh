@@ -428,20 +428,28 @@ clone_maibot() {
 install_python_dependencies() {
     print_title "安装 Python 依赖"
 
+    local original_dir="$PWD"
+
     # 安装 MaiBot 依赖
     cd "$DEPLOY_DIR/MaiBot" || err "无法进入 MaiBot 目录"
     info "安装 MaiBot 依赖..."
     
     # 创建并激活虚拟环境
-    python3 -m venv .venv
-    source .venv/bin/activate
+    if [ ! -d ".venv" ]; then
+        python3 -m venv .venv || err "虚拟环境创建失败"
+    fi
+    
+    if [ -f ".venv/bin/activate" ]; then
+        source .venv/bin/activate
+    else
+        err "虚拟环境激活失败：.venv/bin/activate 不存在"
+    fi
     
     # 升级 pip
-    pip install --upgrade pip -i https://pypi.tuna.tsinghua.edu.cn/simple
+    pip install --upgrade pip -i https://pypi.tuna.tsinghua.edu.cn/simple || warn "pip 升级失败，继续安装..."
     
     attempt=1
     while [[ $attempt -le 3 ]]; do
-        # 检查是否有 requirements.txt 文件
         if [[ -f "requirements.txt" ]]; then
             if pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple; then
                 ok "MaiBot 依赖安装成功"
@@ -452,8 +460,7 @@ install_python_dependencies() {
                 sleep 5
             fi
         else
-            warn "未找到 requirements.txt 文件"
-            break
+            err "未找到 requirements.txt 文件"
         fi
     done
     
@@ -462,95 +469,88 @@ install_python_dependencies() {
     fi
    
     info "MaiBot 配置文件初始化..."
-    mkdir -p config
-    ok "已创建 config 文件夹"
+    mkdir -p config || warn "创建 config 目录失败"
     
     # 复制配置文件
-    if [[ -f "template/bot_config_template.toml" ]]; then
-        cp "template/bot_config_template.toml" "config/bot_config.toml"
-        ok "已复制 bot_config.toml"
-    else
-        warn "未找到 template/bot_config_template.toml"
-    fi
+    [[ -f "template/bot_config_template.toml" ]] && cp "template/bot_config_template.toml" "config/bot_config.toml"
+    [[ -f "template/model_config_template.toml" ]] && cp "template/model_config_template.toml" "config/model_config.toml"
+    [[ -f "template/template.env" ]] && cp "template/template.env" ".env"
     
-    if [[ -f "template/model_config_template.toml" ]]; then
-        cp "template/model_config_template.toml" "config/model_config.toml"
-        ok "已复制 model_config.toml"
-    else
-        warn "未找到 template/model_config_template.toml"
-    fi
-    
-    if [[ -f "template/template.env" ]]; then
-        cp "template/template.env" ".env"
-        ok "已复制 .env"
-    else
-        warn "未找到 template/template.env"
-    fi
+    ok "MaiBot 配置初始化完成"
 
     # 安装 Napcat Adapter 依赖
     cd "$DEPLOY_DIR/MaiBot-Napcat-Adapter" || err "无法进入 Adapter 目录"
     info "安装 Napcat Adapter 依赖..."
     
+    # 使用 MaiBot 的虚拟环境
+    source "$DEPLOY_DIR/MaiBot/.venv/bin/activate"
     
-    info "使用MaiBot的venv..."
-    
-    # 安装依赖
     if [[ -f "requirements.txt" ]]; then
-        pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple
-        ok "Adapter 依赖已安装"
+        pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple || warn "Adapter 依赖安装失败"
     else
         warn "未找到 Adapter 的 requirements.txt 文件"
     fi
 
     # 复制 Adapter 配置文件
-    if [[ -f "template/template_config.toml" ]]; then
-        cp "template/template_config.toml" "config.toml"
-        ok "已复制 Adapter 的 config.toml"
-    else
-        warn "未找到 template/template_config.toml"
-    fi
+    [[ -f "template/template_config.toml" ]] && cp "template/template_config.toml" "config.toml"
     
-    # 退出虚拟环境
+    # 退出虚拟环境并返回原目录
     deactivate
+    cd "$original_dir"
+    
     ok "Python 依赖安装完成"
 }
 
 update_shell_config() {
-    local path_export='export PATH="$HOME/.local/bin/maibot:$PATH"'
-    local fish_path_set='set -gx PATH "$HOME/.local/bin/maibot" $PATH'
+    local path_export='export PATH="$HOME/.local/bin:$PATH"'  # 修正路径
+    local fish_path_set='set -gx PATH "$HOME/.local/bin" $PATH'  # 修正路径
 
-    [[ -f "$HOME/.bashrc" ]] && grep -qF "$path_export" "$HOME/.bashrc" || echo "$path_export" >> "$HOME/.bashrc"
-    [[ -f "$HOME/.zshrc" ]] && grep -qF "$path_export" "$HOME/.zshrc" || echo "$path_export" >> "$HOME/.zshrc"
+    # 检查并更新 shell 配置
+    if [[ -f "$HOME/.bashrc" ]]; then
+        if ! grep -qF "$path_export" "$HOME/.bashrc"; then
+            echo "$path_export" >> "$HOME/.bashrc"
+            ok "已更新 .bashrc"
+        fi
+    fi
+    
+    if [[ -f "$HOME/.zshrc" ]]; then
+        if ! grep -qF "$path_export" "$HOME/.zshrc"; then
+            echo "$path_export" >> "$HOME/.zshrc"
+            ok "已更新 .zshrc"
+        fi
+    fi
     
     local fish_config="$HOME/.config/fish/config.fish"
-    mkdir -p "$(dirname "$fish_config")"
-    [[ -f "$fish_config" ]] && grep -qF "$fish_path_set" "$fish_config" || echo "$fish_path_set" >> "$fish_config"
+    if mkdir -p "$(dirname "$fish_config")" && [[ -f "$fish_config" ]]; then
+        if ! grep -qF "$fish_path_set" "$fish_config"; then
+            echo "$fish_path_set" >> "$fish_config"
+            ok "已更新 fish 配置"
+        fi
+    fi
 }
 
 
 download-script() {
     local DOWNLOAD_URL="${GITHUB_PROXY}https://github.com/kanfandelong/maimai_install/raw/main/maibot.sh"
-    local TARGET_DIR="$LOCAL_BIN/maibot"        # 目录
-    local TARGET_FILE="$TARGET_DIR/maibot"      # 文件路径
+    local TARGET_DIR="$LOCAL_BIN"
+    local TARGET_FILE="$TARGET_DIR/maibot"  # 修正文件路径
 
-    mkdir -p "$TARGET_DIR"
+    mkdir -p "$TARGET_DIR" || warn "无法创建目录 $TARGET_DIR，尝试使用当前权限继续"
 
-    # 下载 maibot 文件到 TARGET_FILE
+    # 下载 maibot 脚本
     download_with_retry "$DOWNLOAD_URL" "$TARGET_FILE"
-    chmod +x "$TARGET_FILE"
+    chmod +x "$TARGET_FILE" || err "无法设置执行权限: $TARGET_FILE"
     ok "maibot 启动脚本已下载到 $TARGET_FILE"
 
-    # 调用 maibot 初始化
+    # maibot 初始化
     if [[ -f "$TARGET_FILE" ]]; then
-        "$TARGET_FILE" --init="$SCRIPT_DIR"
+        "$TARGET_FILE" --init="$SCRIPT_DIR" || warn "maibot 初始化可能有问题，请检查"
         ok "maibot 已初始化到 $SCRIPT_DIR"
     else
         err "maibot 脚本下载失败，初始化中止"
     fi
 
-    # 生成第二个辅助文件 记录下载时间
-    echo "Downloaded at $(date)" > "$TARGET_DIR/download.log"
-    ok "辅助文件 download.log 已生成"
+    echo "Downloaded at $(date)" > "$TARGET_DIR/maibot_download.log"
 }
 
 
