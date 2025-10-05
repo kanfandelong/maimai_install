@@ -370,6 +370,7 @@ install_plugins() {
     source "$DEPLOY_DIR/.venv/bin/activate"
 	info "开始安装插件依赖"
 	if pip install -r $PLUGIN_DIR/$plugin_name/requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple; then
+		deactivate
         success "$plugin_name 依赖安装成功"
 		info "显示$plugin_name的README"
 		cat $PLUGIN_DIR/$plugin_name/README.md
@@ -377,10 +378,105 @@ install_plugins() {
 		press_any_key
         break
     else
+		deactivate
         warn "$plugin_name 依赖安装失败"
 		press_any_key
     fi
 	
+}
+
+select_github_proxy() {                                               #定义函数
+    print_title "选择 GitHub 代理"                                     #打印标题
+    echo "请根据您的网络环境选择一个合适的下载代理："                        #打印提示
+    echo                                                             #打印空行
+
+    # 使用 select 提供选项
+    select proxy_choice in "ghfast.top 镜像 (推荐)" "ghproxy.net 镜像" "不使用代理" "自定义代理"; do
+        case $proxy_choice in
+            "ghfast.top 镜像 (推荐)") 
+                GITHUB_PROXY="https://ghfast.top/"; 
+                success "已选择: ghfast.top 镜像" 
+                break
+                ;;
+            "ghproxy.net 镜像") 
+                GITHUB_PROXY="https://ghproxy.net/"; 
+                success "已选择: ghproxy.net 镜像" 
+                break
+                ;;
+            "不使用代理") 
+                GITHUB_PROXY=""; 
+                success "已选择: 不使用代理" 
+                break
+                ;;
+            "自定义代理") 
+                # 允许用户输入自定义代理
+                read -p "请输入自定义 GitHub 代理 URL (必须以斜杠 / 结尾): " custom_proxy
+                # 检查自定义代理是否以斜杠结尾
+                if [[ -n "$custom_proxy" && "$custom_proxy" != */ ]]; then
+                    custom_proxy="${custom_proxy}/" # 如果没有斜杠，自动添加
+                    warn "自定义代理 URL 没有以斜杠结尾，已自动添加斜杠"
+                fi
+                GITHUB_PROXY="$custom_proxy"
+                success "已选择: 自定义代理 - $GITHUB_PROXY"
+                break
+                ;;
+            *) 
+                warn "无效输入，使用默认代理"
+                GITHUB_PROXY="https://ghfast.top/"
+                ok "已选择: ghfast.top 镜像 (默认)"
+                break
+                ;;
+        esac
+    done
+}
+
+updata_maimai(){
+	local original_dir="$PWD"
+
+    cd "$DEPLOY_DIR" || error "无法进入 MaiBot 目录"
+	
+	info "正在备份data和config"
+	if [ -d "../backup" ]; then # 如果目录已存在
+		info "备份文件夹已存在"
+    else 
+		mkdir -p "../backup"
+    fi 
+	cp -r ./config "../backup/"
+	cp -r ./data "../backup/"
+	cp -r ./plugins "../backup/"
+	
+	select_github_proxy
+	
+	info "开始拉取远程仓库"
+	
+	git pull
+	
+	info "激活虚拟环境"
+    source "$DEPLOY_DIR/.venv/bin/activate"
+	info "开始安装依赖"
+    # 安装 MaiBot 依赖
+	attempt=1
+    while [[ $attempt -le 3 ]]; do
+        if [[ -f "requirements.txt" ]]; then
+            if pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple; then
+                success "MaiBot 依赖安装成功"
+                break
+            else
+                warn "MaiBot 依赖安装失败,重试 $attempt/3"
+                ((attempt++))
+                sleep 5
+            fi
+        else
+            error "未找到 requirements.txt 文件"
+        fi
+    done
+    
+    if [[ $attempt -gt 3 ]]; then
+        error "MaiBot 依赖安装多次失败"
+    fi
+	deactivate
+	info "更新已结束"
+	press_any_key
 }
 
 # 清理日志
@@ -451,12 +547,13 @@ show_menu() {
     echo -e "  ${BOLD}${GREEN}[12] ${RESET} 清理 MaiBot-Napcat-Adapter 日志和PID"
     echo ""
     echo -e "  ${BOLD}${GREEN}[13] ${RESET} 安装插件"
+    echo -e "  ${BOLD}${GREEN}[14] ${RESET} 更新麦麦"
     echo ""
     echo -e "  ${BOLD}${GREEN}[0]  ${RESET} 退出脚本"
     
     print_line
     echo ""
-    echo -ne "${BOLD}${YELLOW}请选择操作 [0-13]: ${RESET}"
+    echo -ne "${BOLD}${YELLOW}请选择操作 [0-14]: ${RESET}"
 }
 
 # =============================================================================
@@ -552,6 +649,9 @@ main() {
 			13)
 				install_plugins
 			    ;;
+			14)
+				updata_maimai
+				;;
             114514) 
                 echo "原始脚本仓库https://github.com/Astriora/Antlia 本脚本仓库地址https://github.com/kanfandelong/maimai_install" 
                 press_any_key  

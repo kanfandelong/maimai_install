@@ -391,8 +391,8 @@ install_system_dependencies() {   #定义函数
 }                          #结束函数定义
 
 clone_maibot() {
-            local CLONE_URL="${GITHUB_PROXY}https://github.com/MaiM-with-u/MaiBot.git" # 选择官方源
-            local CLONE_URL1="${GITHUB_PROXY}https://github.com/MaiM-with-u/MaiBot-Napcat-Adapter.git"
+    local CLONE_URL="${GITHUB_PROXY}https://github.com/MaiM-with-u/MaiBot.git" # 选择官方源
+    local CLONE_URL1="${GITHUB_PROXY}https://github.com/MaiM-with-u/MaiBot-Napcat-Adapter.git"
 
     if [ -d "$DEPLOY_DIR/MaiBot" ]; then # 如果目录已存在
         warn "检测到MaiBot 文件夹已存在。是否删除并重新克隆？(y/n)" # 提示用户是否删除
@@ -421,7 +421,7 @@ clone_maibot() {
             return # 结束函数
         fi # 结束删除选择
     fi # 如果目录不存在则继续克隆
-     git clone --depth 1 "$CLONE_URL1" # 克隆仓库
+    git clone --depth 1 "$CLONE_URL1" # 克隆仓库
 }  # 克隆 仓库结束
 
 # 安装 Python 依赖
