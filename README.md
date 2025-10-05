@@ -33,7 +33,7 @@ sudo apt install wget
 
 ### 4. 下载并运行安装脚本
 ```bash
-wget -O maibot-install.sh https://github.com/kanfandelong/maimai_install/raw/main/maibot.sh && bash maibot-install.sh
+wget -O MaiBot-install.sh https://github.com/kanfandelong/maimai_install/raw/main/MaiBot-install.sh && bash MaiBot-install.sh
 ```
 
 ### 5. 更新 Shell 环境（首次安装后需要）
