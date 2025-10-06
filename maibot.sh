@@ -288,6 +288,35 @@ stop_all() {
     press_any_key
 }
 
+download_with_retry() {                                   #定义函数
+    local url="$1"                                        #获取参数
+    local output="$2"                                     #获取参数
+    local max_attempts=3                                  #最大尝试次数
+    local attempt=1                                       #当前尝试次数
+
+    while [[ $attempt -le $max_attempts ]]; do            #循环直到达到最大尝试次数
+        info "下载尝试 $attempt/$max_attempts: $url"       #打印信息日志
+        if command_exists wget; then                      #如果 wget 存在
+            if wget -O "$output" "$url" 2>/dev/null; then #使用 wget 下载
+                success "下载成功: $output"                     #打印日志
+                return 0                                  #成功返回
+            fi                                            #结束条件判断
+        elif command_exists curl; then                    #如果 curl 存在
+            if curl -L -o "$output" "$url" 2>/dev/null; then #使用 curl 下载
+                success "下载成功: $output"                         #打印日志
+                return 0                                      #成功返回
+            fi                                                #结束条件判断
+        fi                                                    #结束条件判断
+        warn "第 $attempt 次下载失败"                           #打印警告日志
+        if [[ $attempt -lt $max_attempts ]]; then             #如果还没到最大尝试次数
+            info "5秒后重试..."                                #打印信息日志
+            sleep 5                                           #等待 5 秒
+        fi                                                    #结束条件判断
+        ((attempt++))                                         #增加尝试次数
+    done                                                      #结束循环
+    error "所有下载尝试都失败了"                                   #打印错误日志并退出
+} 
+
 # 查看日志
 view_logs() {
     local service=$1
@@ -554,7 +583,9 @@ show_menu() {
     echo -e "  ${BOLD}${GREEN}[12] ${RESET} 清理 MaiBot-Napcat-Adapter 日志和PID"
     echo ""
     echo -e "  ${BOLD}${GREEN}[13] ${RESET} 安装插件"
-    echo -e "  ${BOLD}${GREEN}[14] ${RESET} 更新麦麦"
+    echo -e "  ${BOLD}${GREEN}[14] ${RESET} "
+    echo -e "  ${BOLD}${GREEN}[15] ${RESET} 更新麦麦"
+    echo -e "  ${BOLD}${GREEN}[16] ${RESET} 更新脚本"
     echo ""
     echo -e "  ${BOLD}${GREEN}[0]  ${RESET} 退出脚本"
     
@@ -656,8 +687,15 @@ main() {
 			13)
 				install_plugins
 			    ;;
-			14)
+			15)
 				updata_maimai
+				;;
+			16)
+			    local DOWNLOAD_URL="${GITHUB_PROXY}https://github.com/kanfandelong/maimai_install/raw/main/maibot.sh"
+				local TARGET_FILE="$TARGET_DIR/maibot"  # 修正文件路径
+				select_github_proxy
+				# 下载 maibot 脚本
+				download_with_retry "$DOWNLOAD_URL" "$TARGET_FILE"
 				;;
             114514) 
                 echo "原始脚本仓库https://github.com/Astriora/Antlia 本脚本仓库地址https://github.com/kanfandelong/maimai_install" 
