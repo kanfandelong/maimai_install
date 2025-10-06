@@ -47,11 +47,6 @@ init_paths() {
     DEPLOY_DIR="$DEPLOY_BASE/MaiBot"
 	PLUGIN_DIR="$DEPLOY_DIR/plugins"
     ADAPTER_DIR="$DEPLOY_BASE/MaiBot-Napcat-Adapter"
-	if [ -d "$ADAPTER_DIR/.venv" ]; then
-		ADAPTER_venv=$ADAPTER_DIR/.venv
-	else
-		ADAPTER_venv=$DEPLOY_DIR/.venv
-	fi
     DEPLOY_STATUS_FILE="$DEPLOY_DIR/deploy.status"
     
     # PID 文件路径
@@ -168,7 +163,7 @@ start_adapter() {
     
     # 使用 nohup 启动并保存 PID
     # nohup bash -c "source $DEPLOY_DIR/.venv/bin/activate && python3 main.py" >> "$ADAPTER_LOG_FILE" 2>&1 &
-    nohup bash -c "$ADAPTER_venv/bin/python3 main.py" >> "$ADAPTER_LOG_FILE" 2>&1 &
+    nohup bash -c "$DEPLOY_DIR/.venv/bin/python3 main.py" >> "$ADAPTER_LOG_FILE" 2>&1 &
     local pid=$!
     
     # 保存PID到文件
@@ -309,7 +304,7 @@ view_logs() {
         
         echo -e "${BOLD}${YELLOW}选择查看方式:${RESET}"
         print_line
-        echo -e "  ${BOLD}${GREEN}[1]${RESET} 最近50条"
+        echo -e "  ${BOLD}${GREEN}[1]${RESET} 直接查看"
         echo -e "  ${BOLD}${GREEN}[2]${RESET} 实时跟踪日志 (tail -f)"
         echo -e "  ${BOLD}${GREEN}[3]${RESET} 使用 less 分页查看"
         echo -e "  ${BOLD}${GREEN}[0]${RESET} 返回主菜单"
@@ -549,18 +544,19 @@ show_menu() {
     echo ""
     echo -e "  ${BOLD}${GREEN}[9]  ${RESET} 查看 MaiBot 日志"
     echo -e "  ${BOLD}${GREEN}[10] ${RESET} 查看 MaiBot-Napcat-Adapter 日志"
+    echo -e "  ${BOLD}${GREEN}[11] ${RESET} 查看 Napcat 日志"
     echo ""
-    echo -e "  ${BOLD}${GREEN}[11] ${RESET} 清理 MaiBot 日志和PID"
-    echo -e "  ${BOLD}${GREEN}[12] ${RESET} 清理 MaiBot-Napcat-Adapter 日志和PID"
+    echo -e "  ${BOLD}${GREEN}[12] ${RESET} 清理 MaiBot 日志和PID"
+    echo -e "  ${BOLD}${GREEN}[13] ${RESET} 清理 MaiBot-Napcat-Adapter 日志和PID"
     echo ""
-    echo -e "  ${BOLD}${GREEN}[13] ${RESET} 安装插件"
-    echo -e "  ${BOLD}${GREEN}[14] ${RESET} 更新麦麦"
+    echo -e "  ${BOLD}${GREEN}[14] ${RESET} 安装插件"
+    echo -e "  ${BOLD}${GREEN}[15] ${RESET} 更新麦麦"
     echo ""
     echo -e "  ${BOLD}${GREEN}[0]  ${RESET} 退出脚本"
     
     print_line
     echo ""
-    echo -ne "${BOLD}${YELLOW}请选择操作 [0-14]: ${RESET}"
+    echo -ne "${BOLD}${YELLOW}请选择操作 [0-15]: ${RESET}"
 }
 
 # =============================================================================
@@ -634,7 +630,7 @@ main() {
 				press_any_key 
 				;;
 			8)
-				cd $ADAPTER_DIR && source $ADAPTER_venv/bin/activate && python3 main.py
+				cd $ADAPTER_DIR && source $DEPLOY_DIR/.venv/bin/activate && python3 main.py
 				press_any_key 
 				;;
             9) 
@@ -643,20 +639,24 @@ main() {
             10) 
                 view_logs "MaiBot-Napcat-Adapter" "$ADAPTER_LOG_FILE"
                 ;;
-            11) 
+			11)
+				cd $DEPLOY_BASE
+				view_logs "Napcat" "../Napcat/log/napcat_3905251978.log"
+				;;
+            12) 
                 print_title "清理 MaiBot"
                 clean_logs "MaiBot" "$MAIBOT_LOG_FILE" "$MAIBOT_PID_FILE"
                 press_any_key
                 ;;
-            12) 
+            13) 
                 print_title "清理 MaiBot-Napcat-Adapter"
                 clean_logs "MaiBot-Napcat-Adapter" "$ADAPTER_LOG_FILE" "$ADAPTER_PID_FILE"
                 press_any_key
                 ;;
-			13)
+			14)
 				install_plugins
 			    ;;
-			14)
+			15)
 				updata_maimai
 				;;
             114514) 
