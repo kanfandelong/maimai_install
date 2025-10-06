@@ -515,6 +515,47 @@ updata_maimai(){
 	press_any_key
 }
 
+list_plugins() {
+    print_title "已安装插件列表"
+    
+    if [ ! -d "$PLUGIN_DIR" ] || [ -z "$(ls -A "$PLUGIN_DIR")" ]; then
+        warn "未安装任何插件"
+        return
+    fi
+    
+    local count=0
+    for plugin in "$PLUGIN_DIR"/*; do
+        if [ -d "$plugin" ]; then
+            count=$((count + 1))
+            plugin_name=$(basename "$plugin")
+            echo -e "${BOLD}${GREEN}$count. $plugin_name${RESET}"
+            
+            # 显示 git 信息
+            if [ -d "$plugin/.git" ]; then
+                cd "$plugin" || continue
+                local git_url=$(git remote get-url origin 2>/dev/null || echo "未知")
+                local git_branch=$(git branch --show-current 2>/dev/null || echo "未知")
+                local git_commit=$(git log -1 --format="%h %ad" --date=short 2>/dev/null || echo "未知")
+                cd - >/dev/null || continue
+                
+                echo -e "   ${BLUE}仓库:${RESET} $git_url"
+                echo -e "   ${BLUE}分支:${RESET} $git_branch"
+                echo -e "   ${BLUE}最新提交:${RESET} $git_commit"
+            fi
+            
+            # 检查配置文件
+            if [ -f "$plugin/config.toml" ]; then
+                echo -e "   ${GREEN}✓ 配置文件已存在${RESET}"
+            else
+                echo -e "   ${YELLOW}⚠ 无配置文件，请重启MaiBot${RESET}"
+            fi
+            
+            echo
+        fi
+    done
+    echo -e "${BOLD}总计: $count 个插件${RESET}"
+}
+
 # 清理日志
 clean_logs() {
     local service=$1
@@ -583,7 +624,7 @@ show_menu() {
     echo -e "  ${BOLD}${GREEN}[12] ${RESET} 清理 MaiBot-Napcat-Adapter 日志和PID"
     echo ""
     echo -e "  ${BOLD}${GREEN}[13] ${RESET} 安装插件"
-    echo -e "  ${BOLD}${GREEN}[14] ${RESET} "
+    echo -e "  ${BOLD}${GREEN}[14] ${RESET} 列出所有已安装的插件"
     echo -e "  ${BOLD}${GREEN}[15] ${RESET} 更新麦麦"
     echo -e "  ${BOLD}${GREEN}[16] ${RESET} 更新脚本"
     echo ""
@@ -687,6 +728,7 @@ main() {
 			13)
 				install_plugins
 			    ;;
+            14) list_plugins; press_any_key ;;    
 			15)
 				updata_maimai
 				;;
