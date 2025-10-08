@@ -34,7 +34,7 @@ init_paths() {
     if [ -f "$PATH_CONFIG_FILE" ]; then
         DEPLOY_BASE=$(cat "$PATH_CONFIG_FILE" | tr -d '\n\r' | xargs)
         info "从配置文件加载路径: $DEPLOY_BASE"
-    # 否则检测同级目录
+        # 否则检测同级目录
     elif [ -d "$SCRIPT_DIR/MaiBot" ] && [ -d "$SCRIPT_DIR/MaiBot-Napcat-Adapter" ]; then
         DEPLOY_BASE="$SCRIPT_DIR"
         info "使用同级目录: $DEPLOY_BASE"
@@ -43,21 +43,21 @@ init_paths() {
         echo "用法: $0 --init=/path/to/parent/dir"
         exit 1
     fi
-    
+
     DEPLOY_DIR="$DEPLOY_BASE/MaiBot"
-	PLUGIN_DIR="$DEPLOY_DIR/plugins"
+    PLUGIN_DIR="$DEPLOY_DIR/plugins"
     ADAPTER_DIR="$DEPLOY_BASE/MaiBot-Napcat-Adapter"
-	if [ -d "$ADAPTER_DIR/.venv" ]; then
-		ADAPTER_venv=$ADAPTER_DIR/.venv
-	else
-		ADAPTER_venv=$DEPLOY_DIR/.venv
-	fi
+    if [ -d "$ADAPTER_DIR/.venv" ]; then
+        ADAPTER_venv=$ADAPTER_DIR/.venv
+    else
+        ADAPTER_venv=$DEPLOY_DIR/.venv
+    fi
     DEPLOY_STATUS_FILE="$DEPLOY_DIR/deploy.status"
-    
+
     # PID 文件路径
     MAIBOT_PID_FILE="$DEPLOY_DIR/maibot.pid"
     ADAPTER_PID_FILE="$ADAPTER_DIR/adapter.pid"
-    
+
     # 日志文件路径
     MAIBOT_LOG_FILE="$DEPLOY_DIR/maibot.log"
     ADAPTER_LOG_FILE="$ADAPTER_DIR/adapter.log"
@@ -66,7 +66,7 @@ init_paths() {
 process_exists() {
     local pid_file=$1
     local service_name=$2
-    
+
     if [ -f "$pid_file" ]; then
         local pid=$(cat "$pid_file")
         if kill -0 "$pid" 2>/dev/null; then
@@ -96,7 +96,7 @@ remove_pid() {
 check_service_status() {
     local service=$1
     local pid_file=$2
-    
+
     case $service in
         "MaiBot")
             if process_exists "$MAIBOT_PID_FILE" "MaiBot"; then
@@ -127,24 +127,24 @@ press_any_key() {
 
 start_maibot() {
     info "正在启动 MaiBot..."
-    
+
     if process_exists "$MAIBOT_PID_FILE" "MaiBot"; then
         warn "MaiBot 已在运行中 (PID: $(cat "$MAIBOT_PID_FILE"))"
         return 1
     fi
-    
+
     cd "$DEPLOY_DIR" || { error "无法进入目录 $DEPLOY_DIR"; return 1; }
-    
+
     # 使用 nohup 启动并保存 PID
     # nohup bash -c "source .venv/bin/activate && python3 bot.py" >> "$MAIBOT_LOG_FILE" 2>&1 &
     nohup bash -c ".venv/bin/python3 bot.py" >> "$MAIBOT_LOG_FILE" 2>&1 &
     local pid=$!
-    
+
     # 保存PID到文件
     save_pid "$MAIBOT_PID_FILE" "$pid"
-    
+
     sleep 3
-    
+
     if process_exists "$MAIBOT_PID_FILE" "MaiBot"; then
         success "MaiBot 启动成功 (PID: $pid)"
         info "日志文件: $MAIBOT_LOG_FILE"
@@ -158,24 +158,24 @@ start_maibot() {
 
 start_adapter() {
     info "正在启动 MaiBot-Napcat-Adapter..."
-    
+
     if process_exists "$ADAPTER_PID_FILE" "MaiBot-Napcat-Adapter"; then
         warn "MaiBot-Napcat-Adapter 已在运行中 (PID: $(cat "$ADAPTER_PID_FILE"))"
         return 1
     fi
-    
+
     cd "$ADAPTER_DIR" || { error "无法进入目录 $ADAPTER_DIR"; return 1; }
-    
+
     # 使用 nohup 启动并保存 PID
     # nohup bash -c "source $DEPLOY_DIR/.venv/bin/activate && python3 main.py" >> "$ADAPTER_LOG_FILE" 2>&1 &
     nohup bash -c "$ADAPTER_venv/bin/python3 main.py" >> "$ADAPTER_LOG_FILE" 2>&1 &
     local pid=$!
-    
+
     # 保存PID到文件
     save_pid "$ADAPTER_PID_FILE" "$pid"
-    
+
     sleep 3
-    
+
     if process_exists "$ADAPTER_PID_FILE" "MaiBot-Napcat-Adapter"; then
         success "MaiBot-Napcat-Adapter 启动成功 (PID: $pid)"
         info "日志文件: $ADAPTER_LOG_FILE"
@@ -189,102 +189,102 @@ start_adapter() {
 
 stop_maibot() {
     info "正在停止 MaiBot..."
-    
+
     if process_exists "$MAIBOT_PID_FILE" "MaiBot"; then
         local pid=$(cat "$MAIBOT_PID_FILE")
         kill "$pid" 2>/dev/null
-        
-        # 等待进程结束
-        local count=0
-        while process_exists "$MAIBOT_PID_FILE" "MaiBot" && [ $count -lt 10 ]; do
-            sleep 1
-            count=$((count + 1))
-        done
-        
-        if process_exists "$MAIBOT_PID_FILE" "MaiBot"; then
-            warn "强制停止 MaiBot..."
-            kill -9 "$pid" 2>/dev/null
-            sleep 2
-        fi
-        
-        if ! process_exists "$MAIBOT_PID_FILE" "MaiBot"; then
-            remove_pid "$MAIBOT_PID_FILE"
-            success "MaiBot 已停止"
-            return 0
-        else
-            error "MaiBot 停止失败"
-            return 1
-        fi
-    else
-        warn "MaiBot 未运行"
+
+    # 等待进程结束
+    local count=0
+    while process_exists "$MAIBOT_PID_FILE" "MaiBot" && [ $count -lt 10 ]; do
+        sleep 1
+        count=$((count + 1))
+    done
+
+    if process_exists "$MAIBOT_PID_FILE" "MaiBot"; then
+        warn "强制停止 MaiBot..."
+        kill -9 "$pid" 2>/dev/null
+        sleep 2
+    fi
+
+    if ! process_exists "$MAIBOT_PID_FILE" "MaiBot"; then
         remove_pid "$MAIBOT_PID_FILE"
+        success "MaiBot 已停止"
+        return 0
+    else
+        error "MaiBot 停止失败"
         return 1
+    fi
+else
+    warn "MaiBot 未运行"
+    remove_pid "$MAIBOT_PID_FILE"
+    return 1
     fi
 }
 
 stop_adapter() {
     info "正在停止 MaiBot-Napcat-Adapter..."
-    
+
     if process_exists "$ADAPTER_PID_FILE" "MaiBot-Napcat-Adapter"; then
         local pid=$(cat "$ADAPTER_PID_FILE")
         kill "$pid" 2>/dev/null
-        
-        # 等待进程结束
-        local count=0
-        while process_exists "$ADAPTER_PID_FILE" "MaiBot-Napcat-Adapter" && [ $count -lt 10 ]; do
-            sleep 1
-            count=$((count + 1))
-        done
-        
-        if process_exists "$ADAPTER_PID_FILE" "MaiBot-Napcat-Adapter"; then
-            warn "强制停止 MaiBot-Napcat-Adapter..."
-            kill -9 "$pid" 2>/dev/null
-            sleep 2
-        fi
-        
-        if ! process_exists "$ADAPTER_PID_FILE" "MaiBot-Napcat-Adapter"; then
-            remove_pid "$ADAPTER_PID_FILE"
-            success "MaiBot-Napcat-Adapter 已停止"
-            return 0
-        else
-            error "MaiBot-Napcat-Adapter 停止失败"
-            return 1
-        fi
-    else
-        warn "MaiBot-Napcat-Adapter 未运行"
+
+    # 等待进程结束
+    local count=0
+    while process_exists "$ADAPTER_PID_FILE" "MaiBot-Napcat-Adapter" && [ $count -lt 10 ]; do
+        sleep 1
+        count=$((count + 1))
+    done
+
+    if process_exists "$ADAPTER_PID_FILE" "MaiBot-Napcat-Adapter"; then
+        warn "强制停止 MaiBot-Napcat-Adapter..."
+        kill -9 "$pid" 2>/dev/null
+        sleep 2
+    fi
+
+    if ! process_exists "$ADAPTER_PID_FILE" "MaiBot-Napcat-Adapter"; then
         remove_pid "$ADAPTER_PID_FILE"
+        success "MaiBot-Napcat-Adapter 已停止"
+        return 0
+    else
+        error "MaiBot-Napcat-Adapter 停止失败"
         return 1
+    fi
+else
+    warn "MaiBot-Napcat-Adapter 未运行"
+    remove_pid "$ADAPTER_PID_FILE"
+    return 1
     fi
 }
 
 start_all() {
     print_title "启动所有服务"
-    
+
     start_maibot
     local maibot_result=$?
-    
+
     start_adapter
     local adapter_result=$?
-    
+
     echo ""
     if [ $maibot_result -eq 0 ] && [ $adapter_result -eq 0 ]; then
         success "所有服务启动完成"
     else
         warn "部分服务启动失败,请检查日志"
     fi
-    
+
     press_any_key
 }
 
 stop_all() {
     print_title "停止所有服务"
-    
+
     stop_maibot
     stop_adapter
-    
+
     echo ""
     success "所有服务已停止"
-    
+
     press_any_key
 }
 
@@ -321,21 +321,21 @@ download_with_retry() {                                   #定义函数
 view_logs() {
     local service=$1
     local log_file=$2
-    
+
     if [ ! -f "$log_file" ]; then
         error "日志文件不存在: $log_file"
         press_any_key
         return 1
     fi
-    
+
     while true; do
         clear
         print_title "查看 $service 日志"
-        
+
         echo -e "${CYAN}日志文件:${RESET} $log_file"
         echo -e "${CYAN}文件大小:${RESET} $(du -h "$log_file" | cut -f1)"
         echo ""
-        
+
         echo -e "${BOLD}${YELLOW}选择查看方式:${RESET}"
         print_line
         echo -e "  ${BOLD}${GREEN}[1]${RESET} 最近50条"
@@ -345,7 +345,7 @@ view_logs() {
         print_line
         echo ""
         echo -ne "${BOLD}${YELLOW}请选择操作 [0-3]: ${RESET}"
-        
+
         read log_choice
         case $log_choice in
             1)
@@ -353,7 +353,7 @@ view_logs() {
                 print_title "$service - 日志查看"
                 echo -e "${YELLOW}提示: 使用方向键滚动，按 q 退出${RESET}"
                 echo ""
-                tail -n 50 "$log_file" | less -R
+                tail -n 50 "$log_file" | less -RG
                 ;;
             2)
                 clear
@@ -370,7 +370,7 @@ view_logs() {
                 echo -e "  ${YELLOW}• 使用 / 搜索内容${RESET}"
                 echo -e "  ${YELLOW}• 按 q 退出${RESET}"
                 echo ""
-                less -R "$log_file"
+                less -RG "$log_file"
                 ;;
             0)
                 return 0
@@ -384,11 +384,12 @@ view_logs() {
 }
 
 install_plugins() {
-	echo -ne "${BOLD}${YELLOW}请输入插件仓库地址："
-	read plugin_url
-	plugin_name=$(basename "$plugin_url" .git)
-	info "开始克隆插件$plugin_name"
-	if [ -d "$PLUGIN_DIR/$plugin_name" ]; then # 如果目录已存在
+    echo -ne "${BOLD}${YELLOW}请输入插件仓库地址："
+    read plugin_url
+    select_github_proxy
+    plugin_name=$(basename "$plugin_url" .git)
+    info "开始克隆插件$plugin_name"
+    if [ -d "$PLUGIN_DIR/$plugin_name" ]; then # 如果目录已存在
         warn "检测到插件$plugin_name已存在。是否删除并重新克隆？(y/n)" # 提示用户是否删除
         read -p "请输入选择 (y/n, 默认n): " del_choice # 询问用户是否删除
         del_choice=${del_choice:-n} # 默认选择不删除
@@ -400,25 +401,25 @@ install_plugins() {
             return # 结束函数
         fi # 结束删除选择
     fi # 如果目录不存在则继续克隆
-    git clone --depth 1 "$plugin_url" "$PLUGIN_DIR/$plugin_name" # 克隆仓库
-	
+    git clone --depth 1 "${GITHUB_PROXY}$plugin_url" "$PLUGIN_DIR/$plugin_name" # 克隆仓库
+
     info "激活虚拟环境"
     source "$DEPLOY_DIR/.venv/bin/activate"
-	info "开始安装插件依赖"
-	if pip install -r $PLUGIN_DIR/$plugin_name/requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple; then
-		deactivate
+    info "开始安装插件依赖"
+    if pip install -r $PLUGIN_DIR/$plugin_name/requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple; then
+        deactivate
         success "$plugin_name 依赖安装成功"
-		info "显示$plugin_name的README"
-		cat $PLUGIN_DIR/$plugin_name/README.md
-		info "README已显示"
-		press_any_key
+        info "显示$plugin_name的README"
+        cat $PLUGIN_DIR/$plugin_name/README.md
+        info "README已显示"
+        press_any_key
         break
     else
-		deactivate
+        deactivate
         warn "$plugin_name 依赖安装失败"
-		press_any_key
+        press_any_key
     fi
-	
+
 }
 
 select_github_proxy() {                                               #定义函数
@@ -467,34 +468,34 @@ select_github_proxy() {                                               #定义函
 }
 
 updata_maimai(){
-	local original_dir="$PWD"
+    local original_dir="$PWD"
 
     cd "$DEPLOY_DIR" || error "无法进入 MaiBot 目录"
-	
-	info "正在备份data和config"
-	if [ -d "../backup" ]; then # 如果目录已存在
-		info "备份文件夹已存在"
+
+    info "正在备份data和config"
+    if [ -d "../backup" ]; then # 如果目录已存在
+        info "备份文件夹已存在"
     else 
-		mkdir -p "../backup"
+        mkdir -p "../backup"
     fi 
-	cp -r ./config "../backup/"
-	cp -r ./data "../backup/"
-	cp -r ./plugins "../backup/"
-	
-	select_github_proxy
-	
-	info "开始拉取远程仓库"
-	
-	git pull
-	
-	info "激活虚拟环境"
+    cp -r ./config "../backup/"
+    cp -r ./data "../backup/"
+    cp -r ./plugins "../backup/"
+
+    select_github_proxy
+
+    info "开始拉取远程仓库"
+
+    git pull
+
+    info "激活虚拟环境"
     source "$DEPLOY_DIR/.venv/bin/activate"
-	info "开始安装依赖"
+    info "开始安装依赖"
     # 安装 MaiBot 依赖
-	attempt=1
+    attempt=1
     while [[ $attempt -le 3 ]]; do
         if [[ -f "requirements.txt" ]]; then
-            if pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple; then
+            if pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple --upgrade; then
                 success "MaiBot 依赖安装成功"
                 break
             else
@@ -506,13 +507,13 @@ updata_maimai(){
             error "未找到 requirements.txt 文件"
         fi
     done
-    
+
     if [[ $attempt -gt 3 ]]; then
         error "MaiBot 依赖安装多次失败"
     fi
-	deactivate
-	info "更新已结束"
-	press_any_key
+    deactivate
+    info "更新已结束"
+    press_any_key
 }
 
 list_plugins() {
@@ -529,18 +530,59 @@ list_plugins() {
             count=$((count + 1))
             plugin_name=$(basename "$plugin")
             echo -e "${BOLD}${GREEN}$count. $plugin_name${RESET}"
-            
+            echo -en "   ${BLUE}[INFO]${RESET} 正在连接到远程仓库......\r"
             # 显示 git 信息
             if [ -d "$plugin/.git" ]; then
-                cd "$plugin" || continue
-                local git_url=$(git remote get-url origin 2>/dev/null || echo "未知")
-                local git_branch=$(git branch --show-current 2>/dev/null || echo "未知")
-                local git_commit=$(git log -1 --format="%h %ad" --date=short 2>/dev/null || echo "未知")
-                cd - >/dev/null || continue
-                
-                echo -e "   ${BLUE}仓库:${RESET} $git_url"
-                echo -e "   ${BLUE}分支:${RESET} $git_branch"
-                echo -e "   ${BLUE}最新提交:${RESET} $git_commit"
+                (
+                    cd "$plugin" || exit 1
+                    local git_url=$(git remote get-url origin 2>/dev/null || echo "未知")
+                    local git_branch=$(git branch --show-current 2>/dev/null || echo "未知")
+                    local git_commit=$(git log -1 --format="%h %ad" --date=short 2>/dev/null || echo "未知")
+                    
+                    # 修复版本检查逻辑
+                    local remote_info=""
+                    if git remote get-url origin &>/dev/null; then
+                        # 获取本地最新提交的完整哈希
+                        local local_commit_full=$(git rev-parse HEAD 2>/dev/null)
+                        # 获取远程最新提交的完整哈希
+                        local remote_commit_full=$(git ls-remote origin HEAD 2>/dev/null | cut -f1)
+                        
+                        if [ -n "$local_commit_full" ] && [ -n "$remote_commit_full" ]; then
+                            # 比较完整哈希
+                            if [ "$local_commit_full" = "$remote_commit_full" ]; then
+                                remote_info="${GREEN}已是最新版本${RESET}"
+                            else
+                                # 检查领先/落后情况
+                                git fetch origin >/dev/null 2>&1
+                                local ahead_behind=$(git rev-list --left-right --count HEAD...origin/HEAD 2>/dev/null)
+                                if [ -n "$ahead_behind" ]; then
+                                    local ahead=$(echo "$ahead_behind" | cut -f1)
+                                    local behind=$(echo "$ahead_behind" | cut -f2)
+                                    if [ "$behind" -gt 0 ]; then
+                                        remote_info="${YELLOW}本地落后 $behind 个提交${RESET}"
+                                    elif [ "$ahead" -gt 0 ]; then
+                                        remote_info="${CYAN}本地领先 $ahead 个提交${RESET}"
+                                    else
+                                        remote_info="${YELLOW}分支已分叉${RESET}"
+                                    fi
+                                else
+                                    remote_info="${YELLOW}有更新可用${RESET}"
+                                fi
+                            fi
+                        else
+                            remote_info="${RED}无法获取提交信息${RESET}"
+                        fi
+                    else
+                        remote_info="${RED}无远程仓库${RESET}"
+                    fi
+                    
+                    echo -e "   ${BLUE}仓库:${RESET} $git_url"
+                    echo -e "   ${BLUE}分支:${RESET} $git_branch"
+                    echo -e "   ${BLUE}最新提交:${RESET} $git_commit"
+                    echo -e "   ${BLUE}远程状态:${RESET} $remote_info"
+                )
+            else
+                echo -e "   ${RED}⚠ 非Git仓库${RESET}"
             fi
             
             # 检查配置文件
@@ -556,19 +598,44 @@ list_plugins() {
     echo -e "${BOLD}总计: $count 个插件${RESET}"
 }
 
+updata_plugin(){
+    info "列出插件文件……"
+    ls $PLUGIN_DIR
+    echo -ne "${BOLD}${YELLOW}请输入要更新的插件: ${RESET}"
+    read plugin_name
+    cd $PLUGIN_DIR/$plugin_name
+    info "开始拉取更新"
+    git pull
+    info "显示当前git版本状态"
+    list_plugins
+    info "激活虚拟环境"
+    source "$DEPLOY_DIR/.venv/bin/activate"
+    info "开始更新插件依赖"
+    if pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple --upgrade; then
+        deactivate
+        success "$plugin_name 依赖更新成功"
+        break
+    else
+        deactivate
+        warn "$plugin_name 依赖更新失败"
+        press_any_key
+    fi
+    press_any_key
+}
+
 # 清理日志
 clean_logs() {
     local service=$1
     local log_file=$2
     local pid_file=$3
-    
+
     if [ -f "$log_file" ]; then
         > "$log_file"
         success "已清空 $service 日志"
     else
         warn "$service 日志文件不存在"
     fi
-    
+
     # 清理无效的PID文件
     if [ -f "$pid_file" ] && ! process_exists "$pid_file" "$service"; then
         remove_pid "$pid_file"
@@ -580,59 +647,61 @@ clean_logs() {
 show_menu() {
     clear
     print_title "MaiBot 管理面板 2025.10.06"
-    
+
     echo -e "${CYAN}系统信息:${RESET}"
     echo -e "  用户: ${GREEN}$CURRENT_USER${RESET}"
     echo -e "  时间: ${GREEN}$(date '+%Y-%m-%d %H:%M:%S')${RESET}"
     echo -e "  路径: ${GREEN}$DEPLOY_BASE${RESET}"
     echo ""
-    
+
     echo -e "${CYAN}服务状态:${RESET}"
     echo -e "  MaiBot:                 $(check_service_status 'MaiBot' "$MAIBOT_PID_FILE")"
     echo -e "  MaiBot-Napcat-Adapter:  $(check_service_status 'MaiBot-Napcat-Adapter' "$ADAPTER_PID_FILE")"
     echo ""
-    
+
     # 显示PID信息
     if [ -f "$MAIBOT_PID_FILE" ] && process_exists "$MAIBOT_PID_FILE" "MaiBot"; then
-        echo -e "  MaiBot PID: ${GREEN}$(cat "$MAIBOT_PID_FILE")${RESET}"
+        echo -e "  MaiBot PID:  ${GREEN}$(cat "$MAIBOT_PID_FILE")${RESET}"
     fi
     if [ -f "$ADAPTER_PID_FILE" ] && process_exists "$ADAPTER_PID_FILE" "MaiBot-Napcat-Adapter"; then
         echo -e "  Adapter PID: ${GREEN}$(cat "$ADAPTER_PID_FILE")${RESET}"
     fi
     echo ""
-    
+
     print_line
     echo -e "${BOLD}${YELLOW}操作菜单:${RESET}"
     print_line
-    
-    echo -e "  ${BOLD}${GREEN}[1]  ${RESET} 启动所有服务 (MaiBot + Adapter)"
-    echo -e "  ${BOLD}${GREEN}[2]  ${RESET} 停止所有服务"
+
+    echo -e "  ${BOLD}${GREEN}[1]      ${RESET} 启动所有服务 (MaiBot + Adapter)"
+    echo -e "  ${BOLD}${GREEN}[2]      ${RESET} 停止所有服务"
     echo ""
-    echo -e "  ${BOLD}${GREEN}[3]  ${RESET} 仅启动 MaiBot"
-    echo -e "  ${BOLD}${GREEN}[4]  ${RESET} 仅启动 MaiBot-Napcat-Adapter"
+    echo -e "  ${BOLD}${GREEN}[3]      ${RESET} 仅启动 MaiBot"
+    echo -e "  ${BOLD}${GREEN}[4]      ${RESET} 仅启动 MaiBot-Napcat-Adapter"
     echo ""
-    echo -e "  ${BOLD}${GREEN}[5]  ${RESET} 仅停止 MaiBot"
-    echo -e "  ${BOLD}${GREEN}[6]  ${RESET} 仅停止 MaiBot-Napcat-Adapter"
+    echo -e "  ${BOLD}${GREEN}[5]      ${RESET} 仅停止 MaiBot"
+    echo -e "  ${BOLD}${GREEN}[6]      ${RESET} 仅停止 MaiBot-Napcat-Adapter"
     echo ""
-	echo -e "  ${BOLD}${GREEN}[7]  ${RESET} 前台启动 MaiBot"
-    echo -e "  ${BOLD}${GREEN}[8]  ${RESET} 前台启动 MaiBot-Napcat-Adapter"
+    echo -e "  ${BOLD}${GREEN}[7]      ${RESET} 前台启动 MaiBot"
+    echo -e "  ${BOLD}${GREEN}[8]      ${RESET} 前台启动 MaiBot-Napcat-Adapter"
     echo ""
-    echo -e "  ${BOLD}${GREEN}[9]  ${RESET} 查看 MaiBot 日志"
-    echo -e "  ${BOLD}${GREEN}[10] ${RESET} 查看 MaiBot-Napcat-Adapter 日志"
+    echo -e "  ${BOLD}${GREEN}[9]      ${RESET} 查看 MaiBot 日志"
+    echo -e "  ${BOLD}${GREEN}[10]     ${RESET} 查看 MaiBot-Napcat-Adapter 日志"
     echo ""
-    echo -e "  ${BOLD}${GREEN}[11] ${RESET} 清理 MaiBot 日志和PID"
-    echo -e "  ${BOLD}${GREEN}[12] ${RESET} 清理 MaiBot-Napcat-Adapter 日志和PID"
+    echo -e "  ${BOLD}${GREEN}[11]     ${RESET} 清理 MaiBot 日志和PID"
+    echo -e "  ${BOLD}${GREEN}[12]     ${RESET} 清理 MaiBot-Napcat-Adapter 日志和PID"
     echo ""
-    echo -e "  ${BOLD}${GREEN}[13] ${RESET} 安装插件"
-    echo -e "  ${BOLD}${GREEN}[14] ${RESET} 列出所有已安装的插件"
-    echo -e "  ${BOLD}${GREEN}[15] ${RESET} 更新麦麦"
-    echo -e "  ${BOLD}${GREEN}[16] ${RESET} 更新脚本"
+    echo -e "  ${BOLD}${GREEN}[13/19]  ${RESET} 安装/更新插件"
+    echo -e "  ${BOLD}${GREEN}[14]     ${RESET} 列出所有已安装的插件"
+    echo -e "  ${BOLD}${GREEN}[15/20]  ${RESET} 更新麦麦/检查麦麦更新"
+    echo -e "  ${BOLD}${GREEN}[16]     ${RESET} 更新脚本"
+    echo -e "  ${BOLD}${GREEN}[17]     ${RESET} 导入openie"
+    echo -e "  ${BOLD}${GREEN}[18]     ${RESET} 安装依赖"
     echo ""
     echo -e "  ${BOLD}${GREEN}[0]  ${RESET} 退出脚本"
-    
+
     print_line
     echo ""
-    echo -ne "${BOLD}${YELLOW}请选择操作 [0-14]: ${RESET}"
+    echo -ne "${BOLD}${YELLOW}请选择操作 [0-20]: ${RESET}"
 }
 
 # =============================================================================
@@ -642,42 +711,42 @@ main() {
     # 处理 --init 参数
     if [[ $1 == --init=* ]]; then
         local init_path="${1#*=}"
-        
-        # 处理相对路径
-        if [[ ! "$init_path" = /* ]]; then
-            init_path="$(cd "$init_path" 2>/dev/null && pwd)"
-            if [ $? -ne 0 ]; then
-                error "路径不存在: ${1#*=}"
-                exit 1
-            fi
-        fi
-        
-        # 验证路径
-        if [ ! -d "$init_path/MaiBot" ]; then
-            error "未找到 MaiBot 目录: $init_path/MaiBot"
+
+    # 处理相对路径
+    if [[ ! "$init_path" = /* ]]; then
+        init_path="$(cd "$init_path" 2>/dev/null && pwd)"
+        if [ $? -ne 0 ]; then
+            error "路径不存在: ${1#*=}"
             exit 1
         fi
-        
-        if [ ! -d "$init_path/MaiBot-Napcat-Adapter" ]; then
-            error "未找到 MaiBot-Napcat-Adapter 目录: $init_path/MaiBot-Napcat-Adapter"
-            exit 1
-        fi
-        
-        # 写入配置文件
-        echo "$init_path" > "$PATH_CONFIG_FILE"
-        success "路径配置成功: $init_path"
-        success "配置文件: $PATH_CONFIG_FILE"
-        exit 0
     fi
-    
+
+    # 验证路径
+    if [ ! -d "$init_path/MaiBot" ]; then
+        error "未找到 MaiBot 目录: $init_path/MaiBot"
+        exit 1
+    fi
+
+    if [ ! -d "$init_path/MaiBot-Napcat-Adapter" ]; then
+        error "未找到 MaiBot-Napcat-Adapter 目录: $init_path/MaiBot-Napcat-Adapter"
+        exit 1
+    fi
+
+    # 写入配置文件
+    echo "$init_path" > "$PATH_CONFIG_FILE"
+    success "路径配置成功: $init_path"
+    success "配置文件: $PATH_CONFIG_FILE"
+    exit 0
+    fi
+
     # 初始化路径
     init_paths
-    
+
     # 主循环
     while true; do
         show_menu
         read choice
-        
+
         case $choice in
             1) start_all ;;
             2) stop_all ;;
@@ -701,14 +770,14 @@ main() {
                 stop_adapter
                 press_any_key
                 ;;
-			7)
-				cd $DEPLOY_DIR && source .venv/bin/activate && python3 bot.py
-				press_any_key 
-				;;
-			8)
-				cd $ADAPTER_DIR && source $ADAPTER_venv/bin/activate && python3 main.py
-				press_any_key 
-				;;
+            7)
+                cd $DEPLOY_DIR && source .venv/bin/activate && python3 bot.py
+                press_any_key 
+                ;;
+            8)
+                cd $ADAPTER_DIR && source $ADAPTER_venv/bin/activate && python3 main.py
+                press_any_key 
+                ;;
             9) 
                 view_logs "MaiBot" "$MAIBOT_LOG_FILE"
                 ;;
@@ -725,20 +794,99 @@ main() {
                 clean_logs "MaiBot-Napcat-Adapter" "$ADAPTER_LOG_FILE" "$ADAPTER_PID_FILE"
                 press_any_key
                 ;;
-			13)
-				install_plugins
-			    ;;
+            13)
+                install_plugins
+                ;;
             14) list_plugins; press_any_key ;;    
-			15)
-				updata_maimai
-				;;
-			16)
-			    local DOWNLOAD_URL="${GITHUB_PROXY}https://github.com/kanfandelong/maimai_install/raw/main/maibot.sh"
-				local TARGET_FILE="$TARGET_DIR/maibot"  # 修正文件路径
-				select_github_proxy
-				# 下载 maibot 脚本
-				download_with_retry "$DOWNLOAD_URL" "$TARGET_FILE"
-				;;
+            15)
+                updata_maimai
+                ;;
+            16)
+                local DOWNLOAD_URL="${GITHUB_PROXY}https://github.com/kanfandelong/maimai_install/raw/main/maibot.sh"
+                local TARGET_FILE="$TARGET_DIR/maibot"  # 修正文件路径
+                select_github_proxy
+                # 下载 maibot 脚本
+                download_with_retry "$DOWNLOAD_URL" "$TARGET_FILE"
+                ;;
+            17)
+                cd $DEPLOY_DIR && source .venv/bin/activate && python3 ./scripts/import_openie.py
+                press_any_key 
+                ;;
+            18)
+                echo -ne "${BOLD}${YELLOW}请输入包名："
+                read Package_name
+                info "激活虚拟环境"
+                source "$DEPLOY_DIR/.venv/bin/activate"
+                info "开始安装$Package_name"
+                if pip install $Package_name -i https://pypi.tuna.tsinghua.edu.cn/simple; then
+                    deactivate
+                    success "$Package_name 安装成功"
+                    press_any_key
+                else
+                    deactivate
+                    warn "$Package_name 安装失败"
+                    press_any_key
+                fi
+                ;;
+            19)
+                updata_plugin
+                ;;
+            20)
+                if [ -d "$DEPLOY_DIR/.git" ]; then
+                (
+                    cd "$DEPLOY_DIR" || exit 1
+                    echo -en "${BLUE}[INFO]${RESET} 正在连接到远程仓库......\r"
+                    local git_url=$(git remote get-url origin 2>/dev/null || echo "未知")
+                    local git_branch=$(git branch --show-current 2>/dev/null || echo "未知")
+                    local git_commit=$(git log -1 --format="%h %ad" --date=short 2>/dev/null || echo "未知")
+                    
+                    # 修复版本检查逻辑
+                    local remote_info=""
+                    if git remote get-url origin &>/dev/null; then
+                        # 获取本地最新提交的完整哈希
+                        local local_commit_full=$(git rev-parse HEAD 2>/dev/null)
+                        # 获取远程最新提交的完整哈希
+                        local remote_commit_full=$(git ls-remote origin HEAD 2>/dev/null | cut -f1)
+                        
+                        if [ -n "$local_commit_full" ] && [ -n "$remote_commit_full" ]; then
+                            # 比较完整哈希
+                            if [ "$local_commit_full" = "$remote_commit_full" ]; then
+                                remote_info="${GREEN}麦麦已是最新版本${RESET}"
+                            else
+                                # 检查领先/落后情况
+                                git fetch origin >/dev/null 2>&1
+                                local ahead_behind=$(git rev-list --left-right --count HEAD...origin/HEAD 2>/dev/null)
+                                if [ -n "$ahead_behind" ]; then
+                                    local ahead=$(echo "$ahead_behind" | cut -f1)
+                                    local behind=$(echo "$ahead_behind" | cut -f2)
+                                    if [ "$behind" -gt 0 ]; then
+                                        remote_info="${YELLOW}本地落后 $behind 个提交${RESET}"
+                                    elif [ "$ahead" -gt 0 ]; then
+                                        remote_info="${CYAN}远程领先 $ahead 个提交${RESET}"
+                                    else
+                                        remote_info="${YELLOW}分支已分叉${RESET}"
+                                    fi
+                                else
+                                    remote_info="${YELLOW}有更新可用${RESET}"
+                                fi
+                            fi
+                        else
+                            remote_info="${RED}无法获取提交信息${RESET}"
+                        fi
+                    else
+                        remote_info="${RED}无远程仓库${RESET}"
+                    fi
+                    
+                    echo -e "   ${BLUE}仓库:${RESET} $git_url"
+                    echo -e "   ${BLUE}分支:${RESET} $git_branch"
+                    echo -e "   ${BLUE}最新提交:${RESET} $git_commit"
+                    echo -e "   ${BLUE}远程状态:${RESET} $remote_info"
+                )
+                else
+                    echo -e "   ${RED}⚠ 非Git仓库${RESET}"
+                fi
+                press_any_key
+                ;;
             114514) 
                 echo "原始脚本仓库https://github.com/Astriora/Antlia 本脚本仓库地址https://github.com/kanfandelong/maimai_install" 
                 press_any_key  
