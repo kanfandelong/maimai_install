@@ -47,11 +47,36 @@ init_paths() {
     DEPLOY_DIR="$DEPLOY_BASE/MaiBot"
     PLUGIN_DIR="$DEPLOY_DIR/plugins"
     ADAPTER_DIR="$DEPLOY_BASE/MaiBot-Napcat-Adapter"
+	
+	if [ -d "$DEPLOY_DIR/.venv" ]; then
+        DEPLOY_venv=$DEPLOY_DIR/.venv
+    else
+		if [ -d "$DEPLOY_DIR/venv" ]; then
+			DEPLOY_venv=$DEPLOY_DIR/venv
+		else
+			warn "没有找到MaiBot的虚拟环境"
+			sleep 3
+			exit 1
+		fi
+    fi
+	
     if [ -d "$ADAPTER_DIR/.venv" ]; then
         ADAPTER_venv=$ADAPTER_DIR/.venv
     else
-        ADAPTER_venv=$DEPLOY_DIR/.venv
+        if [ -d "$ADAPTER_DIR/venv" ]; then
+			ADAPTER_venv=$ADAPTER_DIR/venv
+		else
+			if [ -d "$DEPLOY_venv" ]; then
+				ADAPTER_venv=$DEPLOY_venv
+			else
+				warn "没有找到适配器的虚拟环境"
+				sleep 3
+				exit 1
+			fi
+		fi
     fi
+	
+	
     DEPLOY_STATUS_FILE="$DEPLOY_DIR/deploy.status"
 
     # PID 文件路径
@@ -100,7 +125,7 @@ check_service_status() {
     case $service in
         "MaiBot")
             if process_exists "$MAIBOT_PID_FILE" "MaiBot"; then
-                echo -e "${GREEN}[运行中]${RESET}"
+                echo -e "${GREEN}[运行中]  ${RESET}PID: ${GREEN}$(cat "$2")${RESET}"
                 return 0
             else
                 echo -e "${RED}[已停止]${RESET}"
@@ -109,7 +134,7 @@ check_service_status() {
             ;;
         "MaiBot-Napcat-Adapter")
             if process_exists "$ADAPTER_PID_FILE" "MaiBot-Napcat-Adapter"; then
-                echo -e "${GREEN}[运行中]${RESET}"
+                echo -e "${GREEN}[运行中]  ${RESET}PID: ${GREEN}$(cat "$2")${RESET}"
                 return 0
             else
                 echo -e "${RED}[已停止]${RESET}"
@@ -137,7 +162,7 @@ start_maibot() {
 
     # 使用 nohup 启动并保存 PID
     # nohup bash -c "source .venv/bin/activate && python3 bot.py" >> "$MAIBOT_LOG_FILE" 2>&1 &
-    nohup bash -c ".venv/bin/python3 bot.py" >> "$MAIBOT_LOG_FILE" 2>&1 &
+    nohup unbuffer bash -c "$DEPLOY_venv/bin/python3 bot.py" >> "$MAIBOT_LOG_FILE" 2>&1 &
     local pid=$!
 
     # 保存PID到文件
@@ -168,7 +193,7 @@ start_adapter() {
 
     # 使用 nohup 启动并保存 PID
     # nohup bash -c "source $DEPLOY_DIR/.venv/bin/activate && python3 main.py" >> "$ADAPTER_LOG_FILE" 2>&1 &
-    nohup bash -c "$ADAPTER_venv/bin/python3 main.py" >> "$ADAPTER_LOG_FILE" 2>&1 &
+    nohup unbuffer bash -c "$ADAPTER_venv/bin/python3 main.py" >> "$ADAPTER_LOG_FILE" 2>&1 &
     local pid=$!
 
     # 保存PID到文件
@@ -401,10 +426,15 @@ install_plugins() {
             return # 结束函数
         fi # 结束删除选择
     fi # 如果目录不存在则继续克隆
-    git clone --depth 1 "${GITHUB_PROXY}$plugin_url" "$PLUGIN_DIR/$plugin_name" # 克隆仓库
+    git clone "${GITHUB_PROXY}$plugin_url" "$PLUGIN_DIR/$plugin_name" # 克隆仓库
 
     info "激活虚拟环境"
-    source "$DEPLOY_DIR/.venv/bin/activate"
+	if [ -d "$DEPLOY_venv" ]; then
+		source "$DEPLOY_venv/bin/activate"
+	else
+		warn "没有找到虚拟环境"
+		return
+	fi
     info "开始安装插件依赖"
     if pip install -r $PLUGIN_DIR/$plugin_name/requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple; then
         deactivate
@@ -412,12 +442,29 @@ install_plugins() {
         info "显示$plugin_name的README"
         cat $PLUGIN_DIR/$plugin_name/README.md
         info "README已显示"
-        press_any_key
-        break
+        return
     else
         deactivate
-        warn "$plugin_name 依赖安装失败"
-        press_any_key
+        warn "使用pip 安装 $plugin_name 依赖失败"
+		read -p "要使用uv重试吗(y/n, 默认y): " del_choice 
+        del_choice=${del_choice:-y}
+        if [ "$del_choice" = "y" ] || [ "$del_choice" = "Y" ]; then
+			cd $DEPLOY_DIR
+			uv venv
+            if uv pip install -r $PLUGIN_DIR/$plugin_name/requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple; then
+				success "$plugin_name 依赖安装成功"
+				info "显示$plugin_name的README"
+				cat $PLUGIN_DIR/$plugin_name/README.md
+				info "README已显示"
+				return
+			else
+				warn "$plugin_name 依赖未能安装"
+				return
+			fi
+        else
+            warn "$plugin_name 依赖未能安装"
+            return
+        fi
     fi
 
 }
@@ -489,7 +536,7 @@ updata_maimai(){
     git pull
 
     info "激活虚拟环境"
-    source "$DEPLOY_DIR/.venv/bin/activate"
+    source "$DEPLOY_venv/bin/activate"
     info "开始安装依赖"
     # 安装 MaiBot 依赖
     attempt=1
@@ -609,17 +656,110 @@ updata_plugin(){
     info "显示当前git版本状态"
     list_plugins
     info "激活虚拟环境"
-    source "$DEPLOY_DIR/.venv/bin/activate"
+    source "$$DEPLOY_venv/bin/activate"
     info "开始更新插件依赖"
     if pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple --upgrade; then
         deactivate
         success "$plugin_name 依赖更新成功"
-        break
     else
         deactivate
         warn "$plugin_name 依赖更新失败"
-        press_any_key
     fi
+    press_any_key
+}
+
+switch_plugin_version(){
+    info "列出插件文件……"
+    ls $PLUGIN_DIR
+    echo -ne "${BOLD}${YELLOW}请输入要切换版本的插件: ${RESET}"
+    read plugin_name
+    
+    if [ ! -d "$PLUGIN_DIR/$plugin_name" ]; then
+        error "插件 $plugin_name 不存在"
+        press_any_key
+        return 1
+    fi
+    
+    cd $PLUGIN_DIR/$plugin_name
+    
+    # 检查是否是git仓库
+    if [ ! -d ".git" ]; then
+        error "该目录不是git仓库，无法切换版本"
+        press_any_key
+        return 1
+    fi
+    
+    info "获取远程tag列表……"
+    git fetch --tags
+    
+    # 获取tag列表并按版本排序
+    tags=$(git tag -l | sort -V)
+    
+    if [ -z "$tags" ]; then
+        warn "该仓库没有可用的tag"
+        press_any_key
+        return 1
+    fi
+    
+    echo -e "\n${BOLD}${CYAN}可用的版本tag:${RESET}"
+    i=1
+    declare -A tag_map
+    for tag in $tags; do
+        echo "  $i. $tag"
+        tag_map[$i]=$tag
+        ((i++))
+    done
+    
+    current_branch=$(git branch --show-current)
+    current_tag=$(git describe --tags --exact-match 2>/dev/null || echo "无")
+    echo -e "\n${BOLD}当前状态:${RESET} 分支: $current_branch, Tag: $current_tag"
+    
+    echo -ne "\n${BOLD}${YELLOW}请选择要切换的版本编号: ${RESET}"
+    read tag_choice
+    
+    if [ -z "${tag_map[$tag_choice]}" ]; then
+        error "无效的选择: $tag_choice"
+        press_any_key
+        return 1
+    fi
+    
+    selected_tag="${tag_map[$tag_choice]}"
+    
+    info "正在切换到 tag: $selected_tag"
+    
+    # 先切换到master/main分支以便可以切换tag
+    git checkout main 2>/dev/null || git checkout master 2>/dev/null || git checkout -q $(git rev-parse HEAD)
+    
+    if git checkout "tags/$selected_tag" 2>/dev/null || git checkout "$selected_tag" 2>/dev/null; then
+        success "成功切换到版本: $selected_tag"
+        
+        # 显示切换后的状态
+        current_commit=$(git log --oneline -1)
+        info "当前提交: $current_commit"
+        
+        # 激活虚拟环境并更新依赖
+        info "激活虚拟环境"
+        source "$DEPLOY_venv/bin/activate"
+        info "开始更新插件依赖"
+        
+        if pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple --upgrade; then
+            deactivate
+            success "$plugin_name 依赖更新成功"
+        else
+            deactivate
+            warn "$plugin_name 依赖更新失败"
+            press_any_key
+        fi
+        
+        # 显示插件列表确认
+        list_plugins
+        
+    else
+        error "切换版本失败: $selected_tag"
+        press_any_key
+        return 1
+    fi
+    
     press_any_key
 }
 
@@ -643,6 +783,23 @@ clean_logs() {
     fi
 }
 
+import_knowledge() {
+    echo -ne "${BOLD}${YELLOW}请输入一段用于导入知识库的文本（直接回车/换行表示直接提取并导入lpmm_raw_data中存放的txt）："
+    read knowledge
+    if [ -z "$knowledge" ]; then
+        info "从lpmm_raw_data中存放的txt文本提取RDF导入知识库"
+    else
+        info "写入知识到文件"
+    fi
+    echo "$knowledge" > "$DEPLOY_DIR/data/lpmm_raw_data/脚本单条知识.txt"
+    info "激活虚拟环境"
+    cd $DEPLOY_DIR && source $DEPLOY_venv/bin/activate 
+    info "进行RDF实体提取"
+    python3 ./scripts/info_extraction.py
+    info "导入openie"
+    python3 ./scripts/import_openie.py
+}
+
 # 显示菜单
 show_menu() {
     clear
@@ -659,15 +816,10 @@ show_menu() {
     echo -e "  MaiBot-Napcat-Adapter:  $(check_service_status 'MaiBot-Napcat-Adapter' "$ADAPTER_PID_FILE")"
     echo ""
 
-    # 显示PID信息
-    if [ -f "$MAIBOT_PID_FILE" ] && process_exists "$MAIBOT_PID_FILE" "MaiBot"; then
-        echo -e "  MaiBot PID:  ${GREEN}$(cat "$MAIBOT_PID_FILE")${RESET}"
-    fi
-    if [ -f "$ADAPTER_PID_FILE" ] && process_exists "$ADAPTER_PID_FILE" "MaiBot-Napcat-Adapter"; then
-        echo -e "  Adapter PID: ${GREEN}$(cat "$ADAPTER_PID_FILE")${RESET}"
-    fi
+    free -h
+    top -bn1 | grep "Cpu(s)" #| awk '{printf "CPU 使用率: %.2f%% (用户: %.2f%%, 系统: %.2f%%)\n",$2 + $4, $2, $4}'
     echo ""
-
+      
     print_line
     echo -e "${BOLD}${YELLOW}操作菜单:${RESET}"
     print_line
@@ -690,18 +842,17 @@ show_menu() {
     echo -e "  ${BOLD}${GREEN}[11]     ${RESET} 清理 MaiBot 日志和PID"
     echo -e "  ${BOLD}${GREEN}[12]     ${RESET} 清理 MaiBot-Napcat-Adapter 日志和PID"
     echo ""
-    echo -e "  ${BOLD}${GREEN}[13/19]  ${RESET} 安装/更新插件"
-    echo -e "  ${BOLD}${GREEN}[14]     ${RESET} 列出所有已安装的插件"
-    echo -e "  ${BOLD}${GREEN}[15/20]  ${RESET} 更新麦麦/检查麦麦更新"
-    echo -e "  ${BOLD}${GREEN}[16]     ${RESET} 更新脚本"
-    echo -e "  ${BOLD}${GREEN}[17]     ${RESET} 导入openie"
-    echo -e "  ${BOLD}${GREEN}[18]     ${RESET} 安装依赖"
+    echo -e "  ${BOLD}${GREEN}[13/14/19/22]  ${RESET} 安装/列出所有已安装的插件/更新插件/切换插件版本"
+    echo -e "  ${BOLD}${GREEN}[15/20]        ${RESET} 更新麦麦/检查麦麦更新"
+    echo -e "  ${BOLD}${GREEN}[16]           ${RESET} 更新脚本"
+    echo -e "  ${BOLD}${GREEN}[17/21]        ${RESET} 导入openie/添加（一条）新的知识（执行RDF提取并导入）"
+    echo -e "  ${BOLD}${GREEN}[18]           ${RESET} 安装依赖"
     echo ""
     echo -e "  ${BOLD}${GREEN}[0]  ${RESET} 退出脚本"
 
     print_line
     echo ""
-    echo -ne "${BOLD}${YELLOW}请选择操作 [0-20]: ${RESET}"
+    echo -ne "${BOLD}${YELLOW}请选择操作 [0-21]: ${RESET}"
 }
 
 # =============================================================================
@@ -771,7 +922,7 @@ main() {
                 press_any_key
                 ;;
             7)
-                cd $DEPLOY_DIR && source .venv/bin/activate && python3 bot.py
+                cd $DEPLOY_DIR && source $DEPLOY_venv/bin/activate && python3 bot.py
                 press_any_key 
                 ;;
             8)
@@ -796,6 +947,7 @@ main() {
                 ;;
             13)
                 install_plugins
+				press_any_key
                 ;;
             14) list_plugins; press_any_key ;;    
             15)
@@ -809,14 +961,14 @@ main() {
                 download_with_retry "$DOWNLOAD_URL" "$TARGET_FILE"
                 ;;
             17)
-                cd $DEPLOY_DIR && source .venv/bin/activate && python3 ./scripts/import_openie.py
+                cd $DEPLOY_DIR && source $DEPLOY_venv/bin/activate && python3 ./scripts/import_openie.py
                 press_any_key 
                 ;;
             18)
                 echo -ne "${BOLD}${YELLOW}请输入包名："
                 read Package_name
                 info "激活虚拟环境"
-                source "$DEPLOY_DIR/.venv/bin/activate"
+                source "$DEPLOY_venv/bin/activate"
                 info "开始安装$Package_name"
                 if pip install $Package_name -i https://pypi.tuna.tsinghua.edu.cn/simple; then
                     deactivate
@@ -887,6 +1039,13 @@ main() {
                 fi
                 press_any_key
                 ;;
+            21)
+                import_knowledge
+                press_any_key
+                ;;
+            22)
+                switch_plugin_version
+                ;;
             114514) 
                 echo "原始脚本仓库https://github.com/Astriora/Antlia 本脚本仓库地址https://github.com/kanfandelong/maimai_install" 
                 press_any_key  
@@ -896,7 +1055,7 @@ main() {
                 ;;
             *)
                 error "无效选项,请重新选择"
-                sleep 2
+                sleep 1
                 ;;
         esac
     done
