@@ -663,7 +663,26 @@ updata_plugin(){
         success "$plugin_name 依赖更新成功"
     else
         deactivate
-        warn "$plugin_name 依赖更新失败"
+		warn "使用pip 安装 $plugin_name 依赖失败"
+		read -p "要使用uv重试吗(y/n, 默认y): " del_choice 
+        del_choice=${del_choice:-y}
+        if [ "$del_choice" = "y" ] || [ "$del_choice" = "Y" ]; then
+			cd $DEPLOY_DIR
+			uv venv
+            if uv pip install -r $PLUGIN_DIR/$plugin_name/requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple; then
+				success "$plugin_name 依赖安装成功"
+				info "显示$plugin_name的README"
+				cat $PLUGIN_DIR/$plugin_name/README.md
+				info "README已显示"
+				return
+			else
+				warn "$plugin_name 依赖未能安装"
+				return
+			fi
+        else
+            warn "$plugin_name 依赖未能安装"
+            return
+        fi
     fi
     press_any_key
 }
@@ -747,8 +766,26 @@ switch_plugin_version(){
             success "$plugin_name 依赖更新成功"
         else
             deactivate
-            warn "$plugin_name 依赖更新失败"
-            press_any_key
+            warn "使用pip 安装 $plugin_name 依赖失败"
+			read -p "要使用uv重试吗(y/n, 默认y): " del_choice 
+			del_choice=${del_choice:-y}
+			if [ "$del_choice" = "y" ] || [ "$del_choice" = "Y" ]; then
+				cd $DEPLOY_DIR
+				uv venv
+				if uv pip install -r $PLUGIN_DIR/$plugin_name/requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple; then
+					success "$plugin_name 依赖安装成功"
+					info "显示$plugin_name的README"
+					cat $PLUGIN_DIR/$plugin_name/README.md
+					info "README已显示"
+					return
+				else
+					warn "$plugin_name 依赖未能安装"
+					return
+				fi
+			else
+				warn "$plugin_name 依赖未能安装"
+				return
+			fi
         fi
         
         # 显示插件列表确认
@@ -803,7 +840,7 @@ import_knowledge() {
 # 显示菜单
 show_menu() {
     clear
-    print_title "MaiBot 管理面板 2025.10.06"
+    print_title "MaiBot 管理面板 2025.10.14"
 
     echo -e "${CYAN}系统信息:${RESET}"
     echo -e "  用户: ${GREEN}$CURRENT_USER${RESET}"
@@ -843,7 +880,7 @@ show_menu() {
     echo -e "  ${BOLD}${GREEN}[12]     ${RESET} 清理 MaiBot-Napcat-Adapter 日志和PID"
     echo ""
     echo -e "  ${BOLD}${GREEN}[13/14/19/22]  ${RESET} 安装/列出所有已安装的插件/更新插件/切换插件版本"
-    echo -e "  ${BOLD}${GREEN}[15/20]        ${RESET} 更新麦麦/检查麦麦更新"
+    echo -e "  ${BOLD}${GREEN}[15/20]        ${RESET} 更新麦麦(不建议使用)/检查麦麦更新"
     echo -e "  ${BOLD}${GREEN}[16]           ${RESET} 更新脚本"
     echo -e "  ${BOLD}${GREEN}[17/21]        ${RESET} 导入openie/添加（一条）新的知识（执行RDF提取并导入）"
     echo -e "  ${BOLD}${GREEN}[18]           ${RESET} 安装依赖"
