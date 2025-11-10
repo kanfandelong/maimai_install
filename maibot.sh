@@ -1087,7 +1087,7 @@ import_knowledge() {
 # 显示菜单
 show_menu() {
     clear
-    print_title "MaiBot 管理面板 2025.11.08"
+    print_title "MaiBot 管理面板 2025.11.09"
 
     echo -e "${CYAN}系统信息:${RESET}"
     echo -e "  用户: ${GREEN}$CURRENT_USER${RESET}"
@@ -1130,7 +1130,7 @@ show_menu() {
     echo -e "  ${BOLD}${GREEN}[15/20]        ${RESET} 更新麦麦/检查麦麦更新"
     echo -e "  ${BOLD}${GREEN}[16]           ${RESET} 更新脚本"
     echo -e "  ${BOLD}${GREEN}[17/21]        ${RESET} 导入openie/添加（一条）新的知识（执行RDF提取并导入）"
-    echo -e "  ${BOLD}${GREEN}[18/24]        ${RESET} 安装依赖/pip list"
+    echo -e "  ${BOLD}${GREEN}[18/24]        ${RESET} 安装（更新）依赖/pip list"
     echo ""
     echo -e "  ${BOLD}${GREEN}[0]  ${RESET} 退出脚本"
 
@@ -1339,15 +1339,19 @@ main() {
             24)
                 info "激活虚拟环境"
                 source "$DEPLOY_venv/bin/activate"
+                info "列出所有已安装的包..."
                 if pip list; then
-                    deactivate
                     success "pip list 成功"
-                    press_any_key
                 else
-                    deactivate
                     warn "pip list 失败"
-                    press_any_key
                 fi
+                info "列出所有可升级的包..."
+                if pip list --outdate; then
+                    success "pip list --outdate 成功"
+                else
+                    warn "pip list --outdate 失败"
+                fi
+                press_any_key
                 ;;
             114514) 
                 echo "原始脚本仓库https://github.com/Astriora/Antlia 本脚本仓库地址https://github.com/kanfandelong/maimai_install" 
