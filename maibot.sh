@@ -1241,7 +1241,7 @@ main() {
                 ;;
             16)
                 local DOWNLOAD_URL="${GITHUB_PROXY}https://github.com/kanfandelong/maimai_install/raw/main/maibot.sh"
-                local TARGET_FILE="$TARGET_DIR/maibot"  # 修正文件路径
+                local TARGET_FILE="$TARGET_DIR/maibot.sh"  # 修正文件路径
                 select_github_proxy
                 # 下载 maibot 脚本
                 download_with_retry "$DOWNLOAD_URL" "$TARGET_FILE"
