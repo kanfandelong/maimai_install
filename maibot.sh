@@ -507,6 +507,16 @@ install_plugins() {
 		warn "没有找到虚拟环境"
 		return
 	fi
+    if [ -d "$PLUGIN_DIR/$plugin_name/requirements.txt" ]; then 
+        info "requirements.txt存在"
+    else
+        info "没有requirements.txt，插件没有额外的依赖需要安装"
+        success "$plugin_name 依赖安装成功"
+        info "显示$plugin_name的README"
+        cat $PLUGIN_DIR/$plugin_name/README.md
+        info "README已显示"
+        return
+    fi
     info "开始安装插件依赖"
     if pip install -r $PLUGIN_DIR/$plugin_name/requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple; then
         deactivate
@@ -837,11 +847,46 @@ updata_plugin(){
     read _plugin_name
     cd $PLUGIN_DIR/$_plugin_name
     info "开始拉取更新"
-    git pull
+    # 检查是否有本地修改
+    if git diff --quiet && git diff --staged --quiet; then
+        info "没有本地修改，直接拉取更新"
+    else
+        info "保存本地修改..."
+        git stash push -m "auto-update-local-changes-$(date +%Y%m%d-%H%M%S)"
+    fi
+
+    info "拉取远程仓库最新代码..."
+    git pull --force
+
+    # 如果有保存的stash，则尝试恢复
+    if git stash list | grep -q "auto-update-local-changes"; then
+        info "恢复本地修改并尝试合并..."
+        if git stash pop; then
+            success "本地修改已成功合并"
+        else
+            warn "自动合并出现冲突，需要手动解决"
+            info "请手动执行以下命令来解决冲突："
+            info "1. 查看冲突文件: git diff --name-only --diff-filter=U"
+            info "2. 手动编辑冲突文件解决冲突"
+            info "3. 标记冲突已解决: git add <冲突文件>"
+            info "4. 完成合并: git stash drop"
+        fi
+    fi
     info "显示当前git版本状态"
     list_plugins
     info "激活虚拟环境"
     source "$DEPLOY_venv/bin/activate"
+    if [ -d "$PLUGIN_DIR/$_plugin_name/requirements.txt" ]; then 
+        info "requirements.txt存在"
+    else
+        info "没有requirements.txt，插件没有额外的依赖需要安装"
+        success "$_plugin_name 依赖安装成功"
+        info "显示$_plugin_name的README"
+        cat $PLUGIN_DIR/$_plugin_name/README.md
+        info "README已显示"
+        press_any_key
+        return
+    fi
     info "开始更新插件依赖"
     if pip install -r requirements.txt -i https://pypi.tuna.tsinghua.edu.cn/simple --upgrade; then
         deactivate
