@@ -1132,7 +1132,7 @@ import_knowledge() {
 # 显示菜单
 show_menu() {
     clear
-    print_title "MaiBot 管理面板 2025.11.09"
+    print_title "MaiBot 管理面板 2025.11.16"
 
     echo -e "${CYAN}系统信息:${RESET}"
     echo -e "  用户: ${GREEN}$CURRENT_USER${RESET}"
@@ -1285,8 +1285,8 @@ main() {
                 updata_maimai
                 ;;
             16)
-                local DOWNLOAD_URL="${GITHUB_PROXY}https://github.com/kanfandelong/maimai_install/raw/main/maibot.sh"
-                local TARGET_FILE="$TARGET_DIR/maibot.sh"  # 修正文件路径
+                local DOWNLOAD_URL="${GITHUB_PROXY}https://github.com/kanfandelong/maimai_install/blob/main/maibot.sh"
+                local TARGET_FILE="$TARGET_DIR/maibot"  # 修正文件路径
                 select_github_proxy
                 # 下载 maibot 脚本
                 download_with_retry "$DOWNLOAD_URL" "$TARGET_FILE"
