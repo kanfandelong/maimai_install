@@ -1148,7 +1148,7 @@ import_knowledge() {
 # 显示菜单
 show_menu() {
     clear
-    print_title "MaiBot 管理面板 2025.11.09"
+    print_title "MaiBot 管理面板 2025.11.20"
 
     echo -e "${CYAN}系统信息:${RESET}"
     echo -e "  用户: ${GREEN}$CURRENT_USER${RESET}"
@@ -1197,7 +1197,7 @@ show_menu() {
 
     print_line
     echo ""
-    echo -ne "${BOLD}${YELLOW}请选择操作 [0-21]: ${RESET}"
+    echo -ne "${BOLD}${YELLOW}请选择操作 [0-24]: ${RESET}"
 }
 
 # =============================================================================
@@ -1303,7 +1303,7 @@ main() {
             16)
                 select_github_proxy
                 local DOWNLOAD_URL="${GITHUB_PROXY}https://github.com/kanfandelong/maimai_install/raw/main/maibot.sh"
-                local TARGET_FILE="$TARGET_DIR/maibot"  # 修正文件路径
+                local TARGET_FILE="$TARGET_DIR/$(basename "$0")"  # 修正文件路径
                 # 下载 maibot 脚本
                 download_with_retry "$DOWNLOAD_URL" "$TARGET_FILE"
                 ;;
