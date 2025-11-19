@@ -498,7 +498,13 @@ install_plugins() {
             return # 结束函数
         fi # 结束删除选择
     fi # 如果目录不存在则继续克隆
-    git clone "${GITHUB_PROXY}$plugin_url" "$PLUGIN_DIR/$plugin_name" # 克隆仓库
+    
+    if git clone "${GITHUB_PROXY}$plugin_url" "$PLUGIN_DIR/$plugin_name"; then # 克隆仓库
+        success "$plugin_name 仓库已成功拉取"
+    else
+        warn "$plugin_name 仓库拉取失败"
+        return
+    fi
 
     info "激活虚拟环境"
 	if [ -d "$DEPLOY_venv" ]; then
@@ -623,7 +629,12 @@ updata_maimai(){
     fi
 
     info "拉取远程仓库最新代码..."
-    git pull --force
+    if git pull --force; then
+        success "仓库已成功拉取"
+    else
+        warn "仓库拉取失败"
+        return
+    fi
 
     # 如果有保存的stash，则尝试恢复
     if git stash list | grep -q "auto-update-local-changes"; then
@@ -856,7 +867,12 @@ updata_plugin(){
     fi
 
     info "拉取远程仓库最新代码..."
-    git pull --force
+    if git pull --force; then
+        success "$_plugin_name 仓库已成功拉取"
+    else
+        warn "$_plugin_name 仓库拉取失败"
+        return
+    fi
 
     # 如果有保存的stash，则尝试恢复
     if git stash list | grep -q "auto-update-local-changes"; then
@@ -1132,7 +1148,7 @@ import_knowledge() {
 # 显示菜单
 show_menu() {
     clear
-    print_title "MaiBot 管理面板 2025.11.16"
+    print_title "MaiBot 管理面板 2025.11.09"
 
     echo -e "${CYAN}系统信息:${RESET}"
     echo -e "  用户: ${GREEN}$CURRENT_USER${RESET}"
@@ -1285,9 +1301,9 @@ main() {
                 updata_maimai
                 ;;
             16)
-                local DOWNLOAD_URL="${GITHUB_PROXY}https://github.com/kanfandelong/maimai_install/blob/main/maibot.sh"
-                local TARGET_FILE="$TARGET_DIR/maibot"  # 修正文件路径
                 select_github_proxy
+                local DOWNLOAD_URL="${GITHUB_PROXY}https://github.com/kanfandelong/maimai_install/raw/main/maibot.sh"
+                local TARGET_FILE="$TARGET_DIR/maibot"  # 修正文件路径
                 # 下载 maibot 脚本
                 download_with_retry "$DOWNLOAD_URL" "$TARGET_FILE"
                 ;;
